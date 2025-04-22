@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    container_name: fastapi_app
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - db
+    volumes:
+      - .:/app
+      - ./downloads:/app/downloads
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+
+  db:
+    image: postgres:15
+    container_name: postgres_db
+    environment:
+      POSTGRES_USER: ${DATABASE_USERNAME}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: ${DATABASE_NAME}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  celery_worker:
+    build: .
+    container_name: celery_worker
+    command: celery -A app.worker.download_task.celery worker --loglevel=info
+    depends_on:
+      - api
+      - redis
+      - db
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+      - ./downloads:/app/downloads
+
+volumes:
+  postgres_data:
